@@ -1,36 +1,24 @@
 from flask import Flask, render_template, url_for, redirect, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, ValidationError
 from flask_bcrypt import Bcrypt
+from database import Database
 
 import pandas as pd
 
 app = Flask(__name__)
-#db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SECRET_KEY'] = 'thisisasecretkey'
+
 
 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+db_obj = Database()
 
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.get_user.get('id')
-
-
-class User():
-    def get_user():
-        data = {'id': [1, 2],
-            'name': ['vinay', 'nani'],
-            'password': ['abc@1234', 'xyz@1234']}
-        return data
 
 class RegisterForm(FlaskForm):
     username = StringField(validators=[
@@ -42,10 +30,11 @@ class RegisterForm(FlaskForm):
     submit = SubmitField('Register')
 
     def validate_username(self, username):
-        existing_user_username = User.get_user().get('name')
-        if username in existing_user_username:
+        existing_user_username = get_user(username).get('user_name')
+        if username == existing_user_username:
             raise ValidationError(
                 'That username already exists. Please choose a different one.')
+            
 
 class LoginForm(FlaskForm):
     username = StringField(validators=[
@@ -57,7 +46,23 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Login')
 
 class SummaryForm(FlaskForm):
-    submit = StringField('Submit')
+    submit = SubmitField('Submit')
+
+
+@login_manager.user_loader
+def load_user(user_name):
+    return get_user(user_name).get('user_name')
+
+
+def get_user(user_name):
+    query = '''
+            select * from login_users where user_name = ?;
+            '''
+    try:
+        result = db_obj.get_result(query=query, params=[user_name])
+        return {'user_name':result[0][1], 'password': result[0][-1]}
+    except:
+        return {}
 
 @app.route('/')
 def home():
@@ -69,19 +74,25 @@ def submit_form():
     form = LoginForm()
     username = request.form.get('username')
     password = request.form.get('password')
-    if username in User.get_user().get('name'):
+    user_details = get_user(username)
+    if username  == user_details.get('user_name') and \
+        password == user_details.get('password'):
         return render_template('dashboard.html')
     else:
-        return render_template('login.html', form = form, error='Invalid credentials')
+        return render_template('register.html', form = form, error='Invalid credentials')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
         user_name = form.username.data
-        user = User.get_user()
-        if user_name in user.get('name'):
+        password = form.password.data
+        user_details = get_user(user_name)
+        if user_name  == user_details.get('user_name') and \
+            password == user_details.get('password'):
             return redirect(url_for('submit_form'))
+        else:
+            return redirect(url_for('register'))
     return render_template('login.html', form=form)
 
 
@@ -101,8 +112,24 @@ def logout():
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
-        return redirect(url_for('login'))
-    return render_template('register.html', form=form)
+        user_name = form.username.data
+        password = form.password.data
+        user_details = get_user(user_name)
+        if user_name  == user_details.get('user_name'):
+            return redirect(url_for('login'))
+        else:
+            insert_query = """
+                            insert into login_users (user_name, passcode) values
+                            ('{}','{}')
+                           """.format(user_name, password)
+            try:
+                result = db_obj.get_result(query=insert_query)
+                if result == 'Success':
+                    return redirect(url_for('login'))
+            except:
+                raise ValidationError(
+                'Issue while updating Database')
+        return render_template('login.html', form=form)
 
 @app.route('/calculate_total', methods=['POST'])
 def calculate_total():
