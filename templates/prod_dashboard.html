@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Form</title>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+</head>
+<body>
+
+<form method="POST" action="/summary">
+    {{ form.hidden_tag() }}
+    <div id="dynamic-fields">
+        <div class="dynamic-field">
+            {{ form.productname.label }}
+            {{ form.productname }}
+            {{ form.productvalue.label }}
+            {{ form.productvalue }}
+        </div>
+    </div>
+    <button type="button" id="add-field-btn">Add Row</button>
+    {{ form.submit }}
+</form>
+<script>
+    var fieldCounter = 1;
+
+    // Function to add dynamic fields
+    function addDynamicFields() {
+        var newField = $('.dynamic-field:first').clone();
+        newField.find('input').val(''); // Clear the input values
+        newField.appendTo('#dynamic-fields');
+        fieldCounter++;
+    }
+
+    // Event handler for the Add Row button
+    $('#add-field-btn').click(function() {
+        addDynamicFields();
+    });
+</script>
+
+</body>
+</html>

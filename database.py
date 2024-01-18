@@ -34,3 +34,14 @@ class Database:
             con.commit()
             con.close()
             return 'Success'
+"""       
+
+if __name__ == "__main__":
+    db_obj = Database()
+    param = 'vinay'
+    query = '''
+            select * from login_users where user_name = ?;
+            '''
+    result = db_obj.get_result(query=query, params=[param])
+    print(result)
+"""

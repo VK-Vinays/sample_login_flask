@@ -1,7 +1,7 @@
 from flask import Flask, render_template, url_for, redirect, request, jsonify
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField
+from wtforms import StringField, PasswordField, SubmitField, FloatField
 from wtforms.validators import InputRequired, Length, ValidationError
 from flask_bcrypt import Bcrypt
 from database import Database
@@ -45,8 +45,28 @@ class LoginForm(FlaskForm):
 
     submit = SubmitField('Login')
 
+
+class ProductForm(FlaskForm):
+    productname = StringField(validators=[
+                           InputRequired(), Length(min=4, max=20)], render_kw={"placeholder": "productname "})
+    productvalue = FloatField(validators=[
+                             InputRequired(), Length(min=1, max=5)], render_kw={"placeholder": "productvalue "})
+    submit = SubmitField('Total')
+
+
 class SummaryForm(FlaskForm):
-    submit = SubmitField('Submit')
+    logout = SubmitField('Logout')
+
+@app.route('/summary', methods=['GET', 'POST'])
+def summary():
+    form = SummaryForm()
+    total = 0
+    if form.validate_on_submit():
+        product_values = request.form.getlist('productvalue')
+        for value in product_values:
+            total += float(value)
+    return render_template('summary.html', total_value = total, form=form)
+
 
 
 @login_manager.user_loader
@@ -72,12 +92,13 @@ def home():
 @app.route('/submit_form', methods=['POST'])
 def submit_form():
     form = LoginForm()
+    form2 = ProductForm()
     username = request.form.get('username')
     password = request.form.get('password')
     user_details = get_user(username)
     if username  == user_details.get('user_name') and \
         password == user_details.get('password'):
-        return render_template('dashboard.html')
+        return render_template('prod_dashboard.html', form = form2)
     else:
         return render_template('register.html', form = form, error='Invalid credentials')
 
@@ -99,7 +120,7 @@ def login():
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
 def dashboard():
-    return render_template('dashboard.html')
+    return render_template('prod_dashboard.html')
 
 @app.route('/logout', methods=['GET', 'POST'])
 @login_required
@@ -130,13 +151,6 @@ def register():
                 raise ValidationError(
                 'Issue while updating Database')
         return render_template('login.html', form=form)
-
-@app.route('/calculate_total', methods=['POST'])
-def calculate_total():
-    form = SummaryForm()
-    data = request.get_json()
-    total = sum(item['productPrice'] for item in data)
-    return render_template('summary.html',total_value = total, form=form)
 
 if __name__ == "__main__":
     app.run(debug=True)
